@@ -1,0 +1,44 @@
+#!/bin/sh
+#
+# Create/update QMailToaster yum repositories
+#####################################################################
+# change log
+# 12/02/13 shubes - modified to accept status as argument
+# 11/24/13 shubes - migrated from qmailtoaster-plus to QMailToaster
+# 08/22/09 shubes - created
+#####################################################################
+
+#####################################################################
+## begin main processing here
+#
+me=${0##*/}
+myver=v1.0
+echo "$me $myver"
+
+distrel_list="\
+CentOS/5 \
+CentOS/6 \
+"
+basedir=/repos/$1
+if [ -z "$1" ]; then
+  echo "$me what? (need to supply a name)"
+  exit 1
+elif [ ! -d  "$basedir" ]; then
+  echo "$me - $basedir does not exist"
+  exit 1
+fi
+
+echo "$me - processing $basedir/nodist"
+createrepo -p $basedir/nodist
+echo ""
+
+for distrel in $distrel_list; do
+  for repodir in $(find $basedir/$distrel -mindepth 1 -maxdepth 1 -type d); do
+    echo "$me - processing $repodir"
+    createrepo -p $repodir
+    echo ""
+  done
+done
+
+echo "$me - done"
+exit 0

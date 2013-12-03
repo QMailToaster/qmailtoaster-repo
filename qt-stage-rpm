@@ -1,0 +1,148 @@
+#!/bin/sh
+# Bring an rpm into the appropriate repo from the staging area
+# 
+######################################################################
+# Change Log
+# 12/01/13 shubes - created
+######################################################################
+
+######################################################################
+# process each rpm in the staging area
+#
+a5_each_staged_rpm(){
+
+b52_check_sig
+
+b54_sign_rpm
+
+b56_copy_and_link_repo
+
+b58_check_type_status
+}
+
+######################################################################
+# check the signature of the staged rpm
+#
+b52_check_sig(){
+
+rpm --checksig $stagfile
+
+if [ "$?" != "0" ]; then
+# echo "$me - $stagfile has no valid signature"
+  exit 1
+fi
+}
+
+######################################################################
+# invoke expect to sign src.rpm with qmailtoaster key, with no prompting
+#
+b54_sign_rpm(){
+
+expect -c "
+  spawn rpm --addsign $stagfile
+  expect {
+    phrase:  { send \"qmailtoaster-sign-pw\r\"; exp_continue }
+  }
+"
+if [ "$?" != "0" ]; then
+  echo "$me - add key failed for $stagfile"
+  exit 1
+fi
+}
+
+######################################################################
+# copy rpm to nfs filesystem and set up links
+#
+b56_copy_and_link_repo(){
+
+target=$(echo $stagfile | sed -e "s|$stagdir/|$repodir/|")
+stagname=${stagfile##*/}
+
+rm -f $target \
+      $actdir/$stagname
+
+cp -p $stagfile $target
+ln    $target $actdir/$stagname
+
+rm $stagfile
+}
+
+######################################################################
+# if we staged a src.rpm, remove any corresponding binaries,
+# and update flag for rebuilding repos regardless
+#
+b58_check_type_status(){
+
+stagstat=${stagfile#$stagdir/}
+stagstat=${stagstat%%/*}
+stagtype=${stagname%.rpm}
+stagtype=${stagtype##*.}
+stagpvr=${stagname%.$stagtype.rpm}
+
+echo "$me stagpvr=$stagpvr"
+
+case $stagtype in
+  src )
+    for distro in CentOS Fedora Mandriva SuSE; do
+      for binrpm in $(find $repodir/$stagstat/$distro -name "$stagpvr*.rpm"); do
+        echo "$me - removing $binrpm"
+        inum=$(ls -i $binrpm)
+        inum=${inum% *}
+        find $repodir -inum $inum -exec rm {} \;
+        c585_update_stat_repo
+      done
+    done
+    ;;
+  x86_64 | i386 | i686 )
+    c585_update_stat_repo
+    ;;
+  * )
+    echo "$me - invalid stagtype - $stagtype $stagname"
+    exit 1
+    ;;
+esac
+}
+
+######################################################################
+# set flag to update appropriate repos
+#
+c585_update_stat_repo(){
+
+case $stagstat in
+  devel )
+    updt_devel=1
+    ;;
+  testing )
+    updt_testing=1
+    ;;
+  * )
+    echo "$me - invalid stagstat - $stagstat $stagfile"
+    exit 1
+    ;;
+esac
+}
+
+######################################################################
+# main process begins here
+#
+me=${0##*/}
+myver=v1.0
+echo "$me $myver - $1"
+
+stagdir=/stage
+repodir=/repos
+actdir=$repodir/active
+updt_testing=""
+updt_devel=""
+
+for stagfile in $(find $stagdir -name "*.rpm" ); do
+  a5_each_staged_rpm
+done
+
+if [ ! -z "$updt_testing" ]; then
+  qt-update-yum-repo testing
+fi
+
+if [ ! -z "$updt_devel" ]; then
+  qt-update-yum-repo devel
+fi
