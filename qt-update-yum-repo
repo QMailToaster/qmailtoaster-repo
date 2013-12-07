@@ -3,10 +3,32 @@
 # Create/update QMailToaster yum repositories
 #####################################################################
 # change log
+# 12/06/13 shubes - only process repo if something has changed
 # 12/02/13 shubes - modified to accept status as argument
 # 11/24/13 shubes - migrated from qmailtoaster-plus to QMailToaster
 # 08/22/09 shubes - created
 #####################################################################
+
+#####################################################################
+# process each repo - $1 is full path to the repo directory
+#
+a5_process_repo(){
+
+repodir=$1
+echo "$me - processing $repodir"
+
+#TODO: figure out a way to tell if anything was added or deleted
+# so repo is only created when something's changed
+# checking for newer files worked, except for when one's deleted
+#newer=$(find $repodir -maxdepth 0 -newer $repodir/repodata)
+# This is *very* unimportant
+
+#if [ ! -z "$newer" ]; then
+  createrepo -p $repodir
+#fi
+
+echo ""
+}
 
 #####################################################################
 ## begin main processing here
@@ -28,15 +50,11 @@ elif [ ! -d  "$basedir" ]; then
   exit 1
 fi
 
-echo "$me - processing $basedir/nodist"
-createrepo -p $basedir/nodist
-echo ""
+a5_process_repo $basedir/nodist
 
 for distrel in $distrel_list; do
   for repodir in $(find $basedir/$distrel -mindepth 1 -maxdepth 1 -type d); do
-    echo "$me - processing $repodir"
-    createrepo -p $repodir
-    echo ""
+    a5_process_repo $repodir
   done
 done
 

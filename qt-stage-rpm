@@ -57,9 +57,20 @@ b56_copy_and_link_repo(){
 
 target=$(echo $stagfile | sed -e "s|$stagdir/|$repodir/|")
 stagname=${stagfile##*/}
+targetdir=${target%/$stagname}
 
-rm -f $target \
-      $actdir/$stagname
+stagstat=${stagfile#$stagdir/}
+stagstat=${stagstat%%/*}
+stagtype=${stagname%.rpm}
+stagtype=${stagtype##*.}
+stagpvr=${stagname%.$stagtype.rpm}
+stagrel=${stagpvr##*-}
+stagpv=${stagpvr%-$stagrel}
+stagver=${stagpv##*-}
+stagpkg=${stagpv%-$stagver}
+
+rm -f $targetdir/$stagpv-*.rpm \
+      $actdir/$stagpv-*.rpm
 
 cp -p $stagfile $target
 ln    $target $actdir/$stagname
@@ -73,18 +84,10 @@ rm $stagfile
 #
 b58_check_type_status(){
 
-stagstat=${stagfile#$stagdir/}
-stagstat=${stagstat%%/*}
-stagtype=${stagname%.rpm}
-stagtype=${stagtype##*.}
-stagpvr=${stagname%.$stagtype.rpm}
-
-echo "$me stagpvr=$stagpvr"
-
 case $stagtype in
   src )
     for distro in CentOS Fedora Mandriva SuSE; do
-      for binrpm in $(find $repodir/$stagstat/$distro -name "$stagpvr*.rpm"); do
+      for binrpm in $(find $repodir/$stagstat/$distro -name "$stagpkg*$stagver-$stagrel*.rpm"); do
         echo "$me - removing $binrpm"
         inum=$(ls -i $binrpm)
         inum=${inum% *}
@@ -93,7 +96,7 @@ case $stagtype in
       done
     done
     ;;
-  x86_64 | i386 | i686 )
+  x86_64 | i386 | i686 | noarch )
     c585_update_stat_repo
     ;;
   * )
@@ -127,7 +130,7 @@ esac
 #
 me=${0##*/}
 myver=v1.0
-echo "$me $myver - $1"
+echo "$me $myver"
 
 stagdir=/stage
 repodir=/repos
@@ -146,3 +149,6 @@ fi
 if [ ! -z "$updt_devel" ]; then
   qt-update-yum-repo devel
 fi
+
+echo "$me - done"
+exit 0
