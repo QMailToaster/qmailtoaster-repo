@@ -16,16 +16,16 @@ target=$(echo $staglog | sed -e "s|$stagdir/|$repodir/|")
 stagname=${staglog##*/}
 targetdir=${target%/$stagname}
 
-stagtype=${stagname%.log}
+stagtype=${stagname%.buildlog}
 stagtype=${stagtype##*.}
-stagpvr=${stagname%.$stagtype.log}
+stagpvr=${stagname%.$stagtype.buildlog}
 stagrel=${stagpvr##*-}
 stagpv=${stagpvr%-$stagrel}
 stagver=${stagpv##*-}
 stagpkg=${stagpv%-$stagver}
 
-rm -f $targetdir/$stagpv-*.log \
-      $actdir/$stagpv-*.log
+rm -f $targetdir/$stagpv-*.$stagtype.buildlog \
+      $actdir/$stagpv-*.$stagtype.buildlog
 
 cp -p $staglog $target
 ln    $target $actdir/$stagname
@@ -97,8 +97,8 @@ stagpv=${stagpvr%-$stagrel}
 stagver=${stagpv##*-}
 stagpkg=${stagpv%-$stagver}
 
-rm -f $targetdir/$stagpv-*.rpm \
-      $actdir/$stagpv-*.rpm
+rm -f $targetdir/$stagpv-*.$stagtype.rpm \
+      $actdir/$stagpv-*.$stagtype.rpm
 
 cp -p $stagfile $target
 ln    $target $actdir/$stagname
@@ -115,7 +115,7 @@ b58_check_type_status(){
 case $stagtype in
   src )
     for distro in nodist CentOS Fedora Mandriva SuSE; do
-      for binrpm in $(find $repodir/$stagstat/$distro -name "$stagpkg*$stagver-$stagrel*.rpm"); do
+      for binrpm in $(find $repodir/$stagstat/$distro -name "$stagpkg*$stagver-$stagrel*"); do
         echo "$me - removing $binrpm"
         inum=$(ls -i $binrpm)
         inum=${inum% *}
@@ -166,7 +166,7 @@ actdir=$repodir/active
 updt_testing=""
 updt_devel=""
 
-for staglog in $(find $stagdir -name "*.log" ); do
+for staglog in $(find $stagdir -name "*.buildlog" ); do
   a3_each_staged_log
 done
 

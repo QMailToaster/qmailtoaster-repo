@@ -3,7 +3,7 @@
 # Create/update QMailToaster yum repositories
 #####################################################################
 # change log
-# 12/09/13 shubes - exclude log files
+# 12/09/13 shubes - see if log files need to be excluded - they don't
 # 12/06/13 shubes - only process repo if something has changed
 # 12/02/13 shubes - modified to accept status as argument
 # 11/24/13 shubes - migrated from qmailtoaster-plus to QMailToaster
@@ -18,7 +18,7 @@ a5_process_repo(){
 repodir=$1
 echo "$me - processing $repodir"
 
-createrepo --update --pretty --excludes "*.log" $repodir
+createrepo --update --pretty $repodir
 
 echo ""
 }
