@@ -18,14 +18,16 @@ targetdir=${target%/$stagname}
 
 stagtype=${stagname%.buildlog}
 stagtype=${stagtype##*.}
-stagpvr=${stagname%.$stagtype.buildlog}
+stagdist=${stagname%.$stagtype.buildlog}
+stagdist=${stagdist##*.}
+stagpvr=${stagname%.$stagdist.$stagtype.buildlog}
 stagrel=${stagpvr##*-}
 stagpv=${stagpvr%-$stagrel}
 stagver=${stagpv##*-}
 stagpkg=${stagpv%-$stagver}
 
-rm -f $targetdir/$stagpv-*.$stagtype.buildlog \
-      $actdir/$stagpv-*.$stagtype.buildlog
+rm -f $targetdir/$stagpv-*.$stagdist.$stagtype.buildlog \
+      $actdir/$stagpv-*.$stagdist.$stagtype.buildlog
 
 cp -p $staglog $target
 ln    $target $actdir/$stagname
@@ -91,14 +93,16 @@ stagstat=${stagfile#$stagdir/}
 stagstat=${stagstat%%/*}
 stagtype=${stagname%.rpm}
 stagtype=${stagtype##*.}
-stagpvr=${stagname%.$stagtype.rpm}
+stagdist=${stagname%.$stagtype.rpm}
+stagdist=${stagdist##*.}
+stagpvr=${stagname%.$stagdist.$stagtype.rpm}
 stagrel=${stagpvr##*-}
 stagpv=${stagpvr%-$stagrel}
 stagver=${stagpv##*-}
 stagpkg=${stagpv%-$stagver}
 
-rm -f $targetdir/$stagpv-*.$stagtype.rpm \
-      $actdir/$stagpv-*.$stagtype.rpm
+rm -f $targetdir/$stagpv-*.$stagdist.$stagtype.rpm \
+      $actdir/$stagpv-*.$stagdist.$stagtype.rpm
 
 cp -p $stagfile $target
 ln    $target $actdir/$stagname
