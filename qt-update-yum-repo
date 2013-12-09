@@ -3,6 +3,7 @@
 # Create/update QMailToaster yum repositories
 #####################################################################
 # change log
+# 12/09/13 shubes - exclude log files
 # 12/06/13 shubes - only process repo if something has changed
 # 12/02/13 shubes - modified to accept status as argument
 # 11/24/13 shubes - migrated from qmailtoaster-plus to QMailToaster
@@ -17,15 +18,7 @@ a5_process_repo(){
 repodir=$1
 echo "$me - processing $repodir"
 
-#TODO: figure out a way to tell if anything was added or deleted
-# so repo is only created when something's changed
-# checking for newer files worked, except for when one's deleted
-#newer=$(find $repodir -maxdepth 0 -newer $repodir/repodata)
-# This is *very* unimportant
-
-#if [ ! -z "$newer" ]; then
-  createrepo -p $repodir
-#fi
+createrepo --update --pretty --excludes "*.log" $repodir
 
 echo ""
 }
@@ -34,7 +27,7 @@ echo ""
 ## begin main processing here
 #
 me=${0##*/}
-myver=v1.0
+myver=v1.1
 echo "$me $myver"
 
 distrel_list="\

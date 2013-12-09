@@ -3,8 +3,36 @@
 # 
 ######################################################################
 # Change Log
+# 12/09/13 shubes - added processing for logs
 # 12/01/13 shubes - created
 ######################################################################
+
+######################################################################
+# process each log in the staging area
+#
+a3_each_staged_log(){
+
+target=$(echo $staglog | sed -e "s|$stagdir/|$repodir/|")
+stagname=${staglog##*/}
+targetdir=${target%/$stagname}
+
+stagtype=${stagname%.log}
+stagtype=${stagtype##*.}
+stagpvr=${stagname%.$stagtype.log}
+stagrel=${stagpvr##*-}
+stagpv=${stagpvr%-$stagrel}
+stagver=${stagpv##*-}
+stagpkg=${stagpv%-$stagver}
+
+rm -f $targetdir/$stagpv-*.log \
+      $actdir/$stagpv-*.log
+
+cp -p $staglog $target
+ln    $target $actdir/$stagname
+
+rm $staglog
+
+}
 
 ######################################################################
 # process each rpm in the staging area
@@ -137,6 +165,10 @@ repodir=/repos
 actdir=$repodir/active
 updt_testing=""
 updt_devel=""
+
+for staglog in $(find $stagdir -name "*.log" ); do
+  a3_each_staged_log
+done
 
 for stagfile in $(find $stagdir -name "*.rpm" ); do
   a5_each_staged_rpm
