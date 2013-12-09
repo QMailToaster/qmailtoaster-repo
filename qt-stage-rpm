@@ -86,7 +86,7 @@ b58_check_type_status(){
 
 case $stagtype in
   src )
-    for distro in CentOS Fedora Mandriva SuSE; do
+    for distro in nodist CentOS Fedora Mandriva SuSE; do
       for binrpm in $(find $repodir/$stagstat/$distro -name "$stagpkg*$stagver-$stagrel*.rpm"); do
         echo "$me - removing $binrpm"
         inum=$(ls -i $binrpm)
