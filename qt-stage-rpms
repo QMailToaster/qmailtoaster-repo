@@ -179,11 +179,11 @@ for stagfile in $(find $stagdir -name "*.rpm" ); do
 done
 
 if [ ! -z "$updt_testing" ]; then
-  qt-update-yum-repo testing
+  qt-update-yum-repos testing
 fi
 
 if [ ! -z "$updt_devel" ]; then
-  qt-update-yum-repo devel
+  qt-update-yum-repos devel
 fi
 
 echo "$me - done"
