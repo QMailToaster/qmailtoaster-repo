@@ -16,18 +16,18 @@ target=$(echo $staglog | sed -e "s|$stagdir/|$repodir/|")
 stagname=${staglog##*/}
 targetdir=${target%/$stagname}
 
-stagtype=${stagname%.buildlog}
+stagtype=${stagname%.buildlog.txt}
 stagtype=${stagtype##*.}
-stagdist=${stagname%.$stagtype.buildlog}
+stagdist=${stagname%.$stagtype.buildlog.txt}
 stagdist=${stagdist##*.}
-stagpvr=${stagname%.$stagdist.$stagtype.buildlog}
+stagpvr=${stagname%.$stagdist.$stagtype.buildlog.txt}
 stagrel=${stagpvr##*-}
 stagpv=${stagpvr%-$stagrel}
 stagver=${stagpv##*-}
 stagpkg=${stagpv%-$stagver}
 
-rm -f $targetdir/$stagpv-*.$stagdist.$stagtype.buildlog \
-      $actdir/$stagpv-*.$stagdist.$stagtype.buildlog
+rm -f $targetdir/$stagpv-*.$stagdist.$stagtype.buildlog.txt \
+      $actdir/$stagpv-*.$stagdist.$stagtype.buildlog.txt
 
 cp -p $staglog $target
 ln    $target $actdir/$stagname
@@ -170,7 +170,7 @@ actdir=$repodir/active
 updt_testing=""
 updt_devel=""
 
-for staglog in $(find $stagdir -name "*.buildlog" ); do
+for staglog in $(find $stagdir -name "*.buildlog.txt" ); do
   a3_each_staged_log
 done
 
