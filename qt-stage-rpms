@@ -6,6 +6,8 @@
 # 12/09/13 shubes - added processing for logs
 # 12/01/13 shubes - created
 ######################################################################
+# TODO: when staging srpm, remove related binaries from staging too
+######################################################################
 
 ######################################################################
 # process each log in the staging area
