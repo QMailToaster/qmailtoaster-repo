@@ -125,7 +125,7 @@ case $stagtype in
         echo "$me - removing $binrpm"
         inum=$(ls -i $binrpm)
         inum=${inum% *}
-        find $repodir -inum $inum -exec rm {} \;
+        find $repodir/ -inum $inum -exec rm {} \;
         c585_update_stat_repo
       done
     done
