@@ -3,6 +3,7 @@
 # Create/update QMailToaster yum repositories
 #####################################################################
 # change log
+# 04/11/14 shubes - changed to be run as a cron job
 # 12/09/13 shubes - see if log files need to be excluded - they don't
 # 12/06/13 shubes - only process repo if something has changed
 # 12/02/13 shubes - modified to accept status as argument
@@ -11,45 +12,29 @@
 #####################################################################
 
 #####################################################################
-# process each repo - $1 is full path to the repo directory
+# process each repo - $1 is full path to the flag file
 #
 a5_process_repo(){
 
-repodir=$1
+flagfile=$1
+repodir=${flagfile%/*}
+
 echo "$me - processing $repodir"
-
-createrepo --update --pretty $repodir
-
-echo ""
+rm $flagfile
+createrepo --update --pretty $repodir 2>&1
 }
 
 #####################################################################
 ## begin main processing here
 #
 me=${0##*/}
-myver=v1.1
-echo "$me $myver"
+myver=v1.2
 
-distrel_list="\
-CentOS/5 \
-CentOS/6 \
-"
-basedir=/repos/$1
-if [ -z "$1" ]; then
-  echo "$me what? (need to supply a name)"
-  exit 1
-elif [ ! -d  "$basedir" ]; then
-  echo "$me - $basedir does not exist"
-  exit 1
-fi
+echo "$me - $myver started"
 
-a5_process_repo $basedir/nodist
-
-for distrel in $distrel_list; do
-  for repodir in $(find $basedir/$distrel -mindepth 1 -maxdepth 1 -type d); do
-    a5_process_repo $repodir
-  done
+for repoflag in $(find /repos/ -type f -name .needs-update); do
+  a5_process_repo $repoflag
 done
 
-echo "$me - done"
+echo "$me - ended"
 exit 0
