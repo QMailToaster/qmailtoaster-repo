@@ -13,64 +13,6 @@
 ########################################################################
 
 ########################################################################
-# we've (re)staged a src.rpm, so remove any corresponding build logs
-# and binary rpms in both /repos and /stage trees
-#
-a4_remove_binary_rpms(){
-
-stagstat=${stagfile#$stagdir/}
-stagstat=${stagstat%%/*}
-stagname=${stagfile##*/}
-stagpvr=${stagname%$srcsfx}
-
-for rootdir in $repodir $stagdir; do
-  for logfile in $(find $rootdir/$stagstat/ -name "$stagpvr*$logsfx"); do
-    b45_remove_each_log
-  done
-done
-}
-
-########################################################################
-# Remove each log file and it's corresponding binary rpms
-
-b45_remove_each_log(){
-
-while read wrotestring; do
-  b45_remove_binary_rpm
-done << !EOF!
-$(grep ^Wrote $logfile)
-!EOF!
-
-echo "$me - removing $logfile"
-find $rootdir/ -samefile $logfile -exec rm {} \;
-}
-
-########################################################################
-# Remove a binary rpm file, including hard links in /repos
-#
-b45_remove_binary_rpm(){
-
-rpmfile=${wrotestring#Wrote: }
-# there's a \r at the end of this string that we need to get rid of
-rpmfile=${rpmfile%.rpm*}
-rpmfile=${rpmfile}.rpm
-rpmfile=${rpmfile##*/}
-logpath=${logfile%/*}
-binrpm=$logpath/$rpmfile
-
-if [ -f "$binrpm" ]; then
-  echo "$me - removing $binrpm"
-  find $rootdir/ -samefile $binrpm -exec rm {} \;
-# if it's in the yum repo, we need to recreate the repodata
-  if [ -d $logpath/repodata ]; then
-    touch $logpath/$flagfile
-  fi
-else
-  echo "$me - $binrpm not found to remove"
-fi
-}
-
-########################################################################
 # process each build logs and its binary rpms
 
 a6_stage_build_files(){
@@ -105,18 +47,15 @@ echo "$me - $myver started"
 
 stagdir=/stage
 repodir=/repos
-actdir=$repodir/active
-srcsfx=.src.rpm
-logsfx=.buildlog.txt
 flagfile=.needs-update
 
-for stagfile in $(find $stagdir -name "*$srcsfx" ); do
+for stagfile in $(find $stagdir -name "*.src.rpm" ); do
   qt-check-sign-rpm    $stagfile
+  qt-remove-binaries   $stagfile
   qt-move-file-to-repo $stagfile
-  a4_remove_binary_rpms
 done
 
-for staglog in $(find $stagdir -name "*$logsfx" ); do
+for staglog in $(find $stagdir -name "*.buildlog.txt" ); do
   a6_stage_build_files
 done
 

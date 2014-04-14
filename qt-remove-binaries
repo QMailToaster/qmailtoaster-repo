@@ -1,0 +1,84 @@
+#!/bin/sh
+# Remove all binaries corresponding to a given source rpm file
+# from the /repos and /stage areas
+# 
+########################################################################
+# Change Log
+# 04/14/14 shubes - created, from qt-stage-rpms
+########################################################################
+
+########################################################################
+# Remove each log file and it's corresponding binary rpms
+
+a5_remove_each_log(){
+
+while read wrotestring; do
+  b55_remove_binary_rpm
+done << !EOF!
+$(grep ^Wrote $logfile)
+!EOF!
+
+echo "$me - removing $logfile"
+find $rootdir/ -samefile $logfile -exec rm {} \;
+}
+
+########################################################################
+# Remove a binary rpm file, including hard links in /repos
+#
+b55_remove_binary_rpm(){
+
+rpmfile=${wrotestring#Wrote: }
+# there's a \r at the end of this string that we need to get rid of
+rpmfile=${rpmfile%.rpm*}
+rpmfile=${rpmfile}.rpm
+rpmfile=${rpmfile##*/}
+logpath=${logfile%/*}
+binrpm=$logpath/$rpmfile
+
+if [ -f "$binrpm" ]; then
+  echo "$me - removing $binrpm"
+  find $rootdir/ -samefile $binrpm -exec rm {} \;
+# if it's in a yum repo, we need to recreate the repodata (not /stage)
+  if [ -d $logpath/repodata ]; then
+    touch $logpath/$flagfile
+  fi
+else
+  echo "$me - $binrpm not found to remove"
+fi
+}
+
+########################################################################
+# main process begins here
+#
+me=${0##*/}
+myver=v1.0
+echo "$me - $myver started"
+
+if [ -z "$1" ]; then
+  echo "$me - usage: $me .src.rpm file"
+  exit 1
+elif [ ! -f "$1" ]; then
+  echo "$me - file $1 not found"
+  exit 2
+fi
+
+stagfile=$1
+stagdir=/stage
+repodir=/repos
+srcsfx=.src.rpm
+logsfx=.buildlog.txt
+flagfile=.needs-update
+
+stagstat=${stagfile#$stagdir/}
+stagstat=${stagstat%%/*}
+stagname=${stagfile##*/}
+stagpvr=${stagname%$srcsfx}
+
+for rootdir in $repodir $stagdir; do
+  for logfile in $(find $rootdir/$stagstat/ -name "$stagpvr*$logsfx"); do
+    a5_remove_each_log
+  done
+done
+
+echo "$me - ended"
+exit 0
