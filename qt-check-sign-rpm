@@ -1,0 +1,44 @@
+#!/bin/sh
+# Check the signature of an rpm in the staging area,
+# then sign it if it passes
+# 
+########################################################################
+# Change Log
+# 04/11/14 shubes - created from qt-stage-rpms
+########################################################################
+
+########################################################################
+# main process begins here
+#
+me=${0##*/}
+myver=v1.0
+echo "$me - $myver started"
+
+if [ -z "$1" ]; then
+  echo "$me - usage: $me rpmfile"
+  exit 1
+elif [ ! -f "$1" ]; then
+  echo "$me - file $1 not found"
+  exit 2
+fi
+
+rpm --checksig $1
+
+if [ "$?" != "0" ]; then
+# rpm gives adequate message
+  exit 3
+fi
+
+expect -c "
+  spawn rpm --addsign $1
+  expect {
+    phrase:  { send \"qmailtoaster-sign-pw\r\"; exp_continue }
+  }
+"
+if [ "$?" != "0" ]; then
+  echo "$me - add key failed for $stagfile"
+  exit 4
+fi
+
+echo "$me - signature added successfully"
+exit 0

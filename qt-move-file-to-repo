@@ -1,0 +1,44 @@
+#!/bin/sh
+# Bring a file from the staging area to the repos tree,
+# setting up the appropriate hard links et al.
+# 
+########################################################################
+# Change Log
+# 04/11/14 shubes - created from qt-stage-rpms
+########################################################################
+
+########################################################################
+# main process begins here
+#
+me=${0##*/}
+myver=v1.0
+#echo "$me - $myver started"
+
+if [ -z "$1" ]; then
+  echo "$me - usage: $me rpmfile"
+  exit 1
+elif [ ! -f "$1" ]; then
+  echo "$me - file $1 not found"
+  exit 2
+fi
+
+stagfile=$1
+stagdir=/stage
+repodir=/repos
+actdir=$repodir/active
+
+target=$(echo $stagfile | sed -e "s|$stagdir/|$repodir/|")
+stagname=${stagfile##*/}
+targetdir=${target%/$stagname}
+
+rm -f $target \
+      $actdir/$stagname
+
+cp -p $stagfile $target
+ln    $target $actdir/$stagname
+
+echo "$me - $stagfile put in repo"
+rm $stagfile
+
+#echo "$me - ended"
+exit 0

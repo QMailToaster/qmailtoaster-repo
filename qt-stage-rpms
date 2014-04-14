@@ -1,192 +1,126 @@
 #!/bin/sh
 # Bring an rpm into the appropriate repo from the staging area
 # 
-######################################################################
+########################################################################
 # Change Log
+# 04/11/14 shubes - changed invocation of qt-update-yum-repos
+#                 - split out qt-check-sign-rpm script
+#                 - split out qt-move-to-repo script
+#                 - refactored
+# 04/09/14 shubes - remove related binaries when staging srpm
 # 12/09/13 shubes - added processing for logs
 # 12/01/13 shubes - created
-######################################################################
-# TODO: when staging srpm, remove related binaries from staging too
-######################################################################
+########################################################################
 
-######################################################################
-# process each log in the staging area
+########################################################################
+# we've (re)staged a src.rpm, so remove any corresponding build logs
+# and binary rpms in both /repos and /stage trees
 #
-a3_each_staged_log(){
-
-target=$(echo $staglog | sed -e "s|$stagdir/|$repodir/|")
-stagname=${staglog##*/}
-targetdir=${target%/$stagname}
-
-stagtype=${stagname%.buildlog.txt}
-stagtype=${stagtype##*.}
-stagdist=${stagname%.$stagtype.buildlog.txt}
-stagdist=${stagdist##*.}
-stagpvr=${stagname%.$stagdist.$stagtype.buildlog.txt}
-stagrel=${stagpvr##*-}
-stagpv=${stagpvr%-$stagrel}
-stagver=${stagpv##*-}
-stagpkg=${stagpv%-$stagver}
-
-rm -f $targetdir/$stagpv-*.$stagdist.$stagtype.buildlog.txt \
-      $actdir/$stagpv-*.$stagdist.$stagtype.buildlog.txt
-
-cp -p $staglog $target
-ln    $target $actdir/$stagname
-
-rm $staglog
-
-}
-
-######################################################################
-# process each rpm in the staging area
-#
-a5_each_staged_rpm(){
-
-b52_check_sig
-
-b54_sign_rpm
-
-b56_copy_and_link_repo
-
-b58_check_type_status
-}
-
-######################################################################
-# check the signature of the staged rpm
-#
-b52_check_sig(){
-
-rpm --checksig $stagfile
-
-if [ "$?" != "0" ]; then
-# echo "$me - $stagfile has no valid signature"
-  exit 1
-fi
-}
-
-######################################################################
-# invoke expect to sign src.rpm with qmailtoaster key, with no prompting
-#
-b54_sign_rpm(){
-
-expect -c "
-  spawn rpm --addsign $stagfile
-  expect {
-    phrase:  { send \"qmailtoaster-sign-pw\r\"; exp_continue }
-  }
-"
-if [ "$?" != "0" ]; then
-  echo "$me - add key failed for $stagfile"
-  exit 1
-fi
-}
-
-######################################################################
-# copy rpm to nfs filesystem and set up links
-#
-b56_copy_and_link_repo(){
-
-target=$(echo $stagfile | sed -e "s|$stagdir/|$repodir/|")
-stagname=${stagfile##*/}
-targetdir=${target%/$stagname}
+a4_remove_binary_rpms(){
 
 stagstat=${stagfile#$stagdir/}
 stagstat=${stagstat%%/*}
-stagtype=${stagname%.rpm}
-stagtype=${stagtype##*.}
-stagdist=${stagname%.$stagtype.rpm}
-stagdist=${stagdist##*.}
-stagpvr=${stagname%.$stagdist.$stagtype.rpm}
-stagrel=${stagpvr##*-}
-stagpv=${stagpvr%-$stagrel}
-stagver=${stagpv##*-}
-stagpkg=${stagpv%-$stagver}
+stagname=${stagfile##*/}
+stagpvr=${stagname%$srcsfx}
 
-rm -f $targetdir/$stagpv-*.$stagdist.$stagtype.rpm \
-      $actdir/$stagpv-*.$stagdist.$stagtype.rpm
-
-cp -p $stagfile $target
-ln    $target $actdir/$stagname
-
-rm $stagfile
+for rootdir in $repodir $stagdir; do
+  for logfile in $(find $rootdir/$stagstat/ -name "$stagpvr*$logsfx"); do
+    b45_remove_each_log
+  done
+done
 }
 
-######################################################################
-# if we staged a src.rpm, remove any corresponding binaries,
-# and update flag for rebuilding repos regardless
+########################################################################
+# Remove each log file and it's corresponding binary rpms
+
+b45_remove_each_log(){
+
+while read wrotestring; do
+  b45_remove_binary_rpm
+done << !EOF!
+$(grep ^Wrote $logfile)
+!EOF!
+
+echo "$me - removing $logfile"
+find $rootdir/ -samefile $logfile -exec rm {} \;
+}
+
+########################################################################
+# Remove a binary rpm file, including hard links in /repos
 #
-b58_check_type_status(){
+b45_remove_binary_rpm(){
 
-case $stagtype in
-  src )
-    for distro in nodist CentOS Fedora Mandriva SuSE; do
-      for binrpm in $(find $repodir/$stagstat/$distro -name "$stagpkg*$stagver-$stagrel*"); do
-        echo "$me - removing $binrpm"
-        inum=$(ls -i $binrpm)
-        inum=${inum% *}
-        find $repodir/ -inum $inum -exec rm {} \;
-        c585_update_stat_repo
-      done
-    done
-    ;;
-  x86_64 | i386 | i686 | noarch )
-    c585_update_stat_repo
-    ;;
-  * )
-    echo "$me - invalid stagtype - $stagtype $stagname"
-    exit 1
-    ;;
-esac
+rpmfile=${wrotestring#Wrote: }
+# there's a \r at the end of this string that we need to get rid of
+rpmfile=${rpmfile%.rpm*}
+rpmfile=${rpmfile}.rpm
+rpmfile=${rpmfile##*/}
+logpath=${logfile%/*}
+binrpm=$logpath/$rpmfile
+
+if [ -f "$binrpm" ]; then
+  echo "$me - removing $binrpm"
+  find $rootdir/ -samefile $binrpm -exec rm {} \;
+# if it's in the yum repo, we need to recreate the repodata
+  if [ -d $logpath/repodata ]; then
+    touch $logpath/$flagfile
+  fi
+else
+  echo "$me - $binrpm not found to remove"
+fi
 }
 
-######################################################################
-# set flag to update appropriate repos
-#
-c585_update_stat_repo(){
+########################################################################
+# process each build logs and its binary rpms
 
-case $stagstat in
-  devel )
-    updt_devel=1
-    ;;
-  testing )
-    updt_testing=1
-    ;;
-  * )
-    echo "$me - invalid stagstat - $stagstat $stagfile"
-    exit 1
-    ;;
-esac
+a6_stage_build_files(){
+
+archdir=${staglog%/*}
+
+while read wrotestring; do
+  rpmfile=${wrotestring#Wrote: }
+# there's a \r at the end of this string that we need to get rid of
+  rpmfile=${rpmfile%.rpm*}
+  rpmfile=${rpmfile}.rpm
+  rpmfile=${rpmfile##*/}
+  stagfile=$archdir/$rpmfile
+  qt-check-sign-rpm    $stagfile
+  qt-move-file-to-repo $stagfile
+done << !EOF!
+$(grep ^Wrote $staglog)
+!EOF!
+ 
+archdir=$(echo $archdir | sed -e "s|$stagdir/|$repodir/|")
+touch $archdir/$flagfile
+
+qt-move-file-to-repo $staglog
 }
 
-######################################################################
+########################################################################
 # main process begins here
 #
 me=${0##*/}
-myver=v1.0
-echo "$me $myver"
+myver=v1.1
+echo "$me - $myver started"
 
 stagdir=/stage
 repodir=/repos
 actdir=$repodir/active
-updt_testing=""
-updt_devel=""
+srcsfx=.src.rpm
+logsfx=.buildlog.txt
+flagfile=.needs-update
 
-for staglog in $(find $stagdir -name "*.buildlog.txt" ); do
-  a3_each_staged_log
+for stagfile in $(find $stagdir -name "*$srcsfx" ); do
+  qt-check-sign-rpm    $stagfile
+  qt-move-file-to-repo $stagfile
+  a4_remove_binary_rpms
 done
 
-for stagfile in $(find $stagdir -name "*.rpm" ); do
-  a5_each_staged_rpm
+for staglog in $(find $stagdir -name "*$logsfx" ); do
+  a6_stage_build_files
 done
 
-if [ ! -z "$updt_testing" ]; then
-  qt-update-yum-repos testing
-fi
+qt-update-yum-repos
 
-if [ ! -z "$updt_devel" ]; then
-  qt-update-yum-repos devel
-fi
-
-echo "$me - done"
+echo "$me - ended"
 exit 0
