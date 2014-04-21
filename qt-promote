@@ -1,0 +1,161 @@
+#!/bin/sh
+# Find eligible packages to promote, and offer to promote or remove them.
+# 
+########################################################################
+# Change Log
+# 04/14/14 shubes - created
+########################################################################
+
+########################################################################
+# process each package-version
+#
+a5_each_package_version(){
+
+srcfile=${srcrpm##*/}
+srcpvr=${srcfile%$srcsfx}
+
+ok=""
+logfiles=""
+b53_check_build_logs
+
+if [ -z "$ok" ]; then
+  b55_process_this_version
+fi
+}
+
+########################################################################
+# check to see if all distro/ver/arch builds are complete
+#
+b53_check_build_logs(){
+
+logfile=$(find $rootdir/nodist -name "$srcpvr.*$logsfx")
+
+if [ -z "$logfile" ]; then
+  is_noarch=n
+  for dist_ver_arch in $supported_build_dirs; do
+    arch=${dist_ver_arch##*/}
+    logfile=$(find $rootdir/$dist_ver_arch -name "$srcpvr.*.$arch$logsfx")
+    if [ -z "$logfile" ]; then
+      echo "$me - $rootdir/$dist_ver_arch/$srcpvr.*.$arch$logsfx not built"
+      ok=n
+    else
+      logfiles="$logfiles $logfile"
+    fi
+  done
+else
+  is_noarch=y
+  logfiles=$logfile
+fi
+}
+
+########################################################################
+# build is complete. Ask what to do with it.
+
+b55_process_this_version(){
+
+q551_ask_default_n "Shall we Promote $srcpvr to current?"
+
+if [ "$PROCEED" == "y" ]; then
+  c555_promote_package
+else
+  q551_ask_default_n "Shall we Remove $srcpvr from testing?"
+  if [ "$PROCEED" == "y" ]; then
+    stagsrpm=$(echo "$srcrpm" | sed -e "s|$repodir/|$stagdir/|")
+    qt-remove-binaries $stagsrpm
+  fi
+fi
+}
+
+########################################################################
+# promote this package
+
+c555_promote_package(){
+
+echo "Going to promote $srcpvr"
+
+for logfile in $logfiles; do
+  d5555_each_log_file
+done
+
+qt-testing-to-current $srcrpm
+}
+
+########################################################################
+# process each log file (distro/arch) for the package
+#
+d5555_each_log_file(){
+
+archdir=${logfile%/*}
+
+while read wrotestring; do
+  rpmfile=${wrotestring#Wrote: }
+# there's a \r at the end of this string that we need to get rid of
+  rpmfile=${rpmfile%.rpm*}
+  rpmfile=${rpmfile}.rpm
+  rpmfile=${rpmfile##*/}
+  testrpm=$archdir/$rpmfile
+  qt-testing-to-current $testrpm
+done << !EOF!
+$(grep ^Wrote $logfile)
+!EOF!
+
+qt-testing-to-current $logfile
+ 
+touch $archdir/$flagfile
+archdir=$(echo $archdir | sed -e "s|$rootdir/|$currdir/|")
+touch $archdir/$flagfile
+}
+
+###################################################################
+# Ask to proceed, skip or exit; default n
+#
+q551_ask_default_n(){
+
+#echo -n "$1 (yes, no|skip, quit) y / [n]|s / q : "
+echo -n "$1 (y / [n]|s / q) : "
+read REPLY
+case $REPLY in
+  "y" | "yes" )
+    PROCEED=y
+     ;;
+  "" | "n" | "no" | "s" | "skip" )
+    PROCEED=n
+     ;;
+  * )
+    echo "Breaking."
+    break
+    ;;
+esac
+}
+
+########################################################################
+# main process begins here
+#
+me=${0##*/}
+myver=v1.0
+echo "$me - $myver started"
+
+repodir=/repos
+stagdir=/stage
+currdir=$repodir/current
+rootdir=$repodir/testing
+actdir=$repodir/active
+srcsfx=.src.rpm
+logsfx=.buildlog.txt
+flagfile=.needs-update
+
+supported_build_dirs="\
+CentOS/5/i386 \
+CentOS/5/x86_64 \
+CentOS/6/i386 \
+CentOS/6/x86_64 \
+"
+
+for srcrpm in $(find $rootdir/ -name "*$srcsfx" | sort); do
+  a5_each_package_version
+done
+
+qt-update-yum-repos
+
+echo "$me - ended"
+exit 0

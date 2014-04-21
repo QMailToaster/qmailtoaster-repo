@@ -1,10 +1,10 @@
 #!/bin/sh
-# Bring a file from the staging area to the repos tree,
+# Bring a file from the testing branch to the current tree,
 # setting up the appropriate hard links et al.
 # 
 ########################################################################
 # Change Log
-# 04/11/14 shubes - created from qt-stage-rpms
+# 04/21/14 shubes - created from qt-move-file-to-repo
 ########################################################################
 
 ########################################################################
@@ -12,32 +12,30 @@
 #
 me=${0##*/}
 myver=v1.0
-#echo "$me - $myver started"
 
 if [ -z "$1" ]; then
-  echo "$me - usage: $me rpmfile"
+  echo "$me - usage: $me repofile"
   exit 1
 elif [ ! -f "$1" ]; then
   echo "$me - file $1 not found"
   exit 2
 fi
 
-stagfile=$1
-stagdir=/stage
+fromtree=testing
+desttree=current
 repodir=/repos
 actdir=$repodir/active
+arcdir=$repodir/archive/rpms
 
-target=$(echo $stagfile | sed -e "s|$stagdir/|$repodir/|")
-stagname=${stagfile##*/}
+testfile=$1
+filename=${testfile##*/}
+anchor=$actdir/$filename
+destfile=$(echo $testfile | sed -e "s|$fromtree|$desttree|")
 
-rm -f $target \
-      $actdir/$stagname
+ln $anchor $arcdir/$filename
+ln $anchor $destfile
+rm $testfile
 
-cp -p $stagfile $target
-ln    $target $actdir/$stagname
+echo "$me - $testfile promoted to current"
 
-echo "$me - $stagfile put in repo"
-rm $stagfile
-
-#echo "$me - ended"
 exit 0

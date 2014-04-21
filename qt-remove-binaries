@@ -12,6 +12,8 @@
 
 a5_remove_each_log(){
 
+logpath=${logfile%/*}
+
 while read wrotestring; do
   b55_remove_binary_rpm
 done << !EOF!
@@ -20,6 +22,11 @@ $(grep ^Wrote $logfile)
 
 echo "$me - removing $logfile"
 find $rootdir/ -samefile $logfile -exec rm {} \;
+
+# if it's in a yum repo, we need to recreate the repodata (not /stage)
+if [ -d $logpath/repodata ]; then
+  touch $logpath/$flagfile
+fi
 }
 
 ########################################################################
@@ -32,16 +39,11 @@ rpmfile=${wrotestring#Wrote: }
 rpmfile=${rpmfile%.rpm*}
 rpmfile=${rpmfile}.rpm
 rpmfile=${rpmfile##*/}
-logpath=${logfile%/*}
 binrpm=$logpath/$rpmfile
 
 if [ -f "$binrpm" ]; then
   echo "$me - removing $binrpm"
   find $rootdir/ -samefile $binrpm -exec rm {} \;
-# if it's in a yum repo, we need to recreate the repodata (not /stage)
-  if [ -d $logpath/repodata ]; then
-    touch $logpath/$flagfile
-  fi
 else
   echo "$me - $binrpm not found to remove"
 fi
@@ -57,18 +59,15 @@ echo "$me - $myver started"
 if [ -z "$1" ]; then
   echo "$me - usage: $me .src.rpm file"
   exit 1
-elif [ ! -f "$1" ]; then
-  echo "$me - file $1 not found"
-  exit 2
 fi
 
-stagfile=$1
 stagdir=/stage
 repodir=/repos
 srcsfx=.src.rpm
 logsfx=.buildlog.txt
 flagfile=.needs-update
 
+stagfile=$1
 stagstat=${stagfile#$stagdir/}
 stagstat=${stagstat%%/*}
 stagname=${stagfile##*/}
@@ -79,6 +78,11 @@ for rootdir in $repodir $stagdir; do
     a5_remove_each_log
   done
 done
+
+# remove corresponding src.rpm in /repos if it exists
+repofile=$(echo $stagfile | sed -e "s|$stagdir/|$repodir/|")
+echo "$me - removing $repofile"
+find $repodir/ -samefile $repofile -exec rm {} \;
 
 echo "$me - ended"
 exit 0
